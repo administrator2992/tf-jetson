@@ -19,6 +19,10 @@ limitations under the License.
 #include <memory>
 #include <thread>  // NOLINT(build/c++11)
 #include <vector>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <iostream
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
@@ -44,7 +48,6 @@ limitations under the License.
 
 namespace tflite {
 namespace gpu {
-namespace {
 
 using delegates::Serialization;
 using delegates::SerializationParams;
@@ -540,7 +543,22 @@ TfLiteStatus DelegatePrepare(TfLiteContext* context, TfLiteDelegate* delegate) {
   return status;
 }
 
-}  // namespace
+extern "C" {
+typedef void (*ErrorHandler)(const char*);
+// using the default options from TfLiteGpuDelegateOptionsV2Default()
+TfLiteDelegate* tflite_plugin_create_delegate(char** options_keys,
+                                              char** options_values,
+                                              size_t num_options,
+                                              ErrorHandler error_handler) {
+  TfLiteGpuDelegateOptionsV2* options;
+  return TfLiteGpuDelegateV2Create(options);
+}
+
+void tflite_plugin_destroy_delegate(TfLiteDelegate* delegate) {
+  delete GetDelegate(delegate);
+}
+}  // namespace extern    
+
 }  // namespace gpu
 }  // namespace tflite
 
