@@ -22,7 +22,6 @@ limitations under the License.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -49,7 +48,8 @@ limitations under the License.
 
 namespace tflite {
 namespace gpu {
-
+namespace {
+    
 using delegates::Serialization;
 using delegates::SerializationParams;
 
@@ -542,25 +542,75 @@ TfLiteStatus DelegatePrepare(TfLiteContext* context, TfLiteDelegate* delegate) {
                   gpu_delegate->num_delegate_kernels());
   TfLiteIntArrayFree(ops_to_replace);
   return status;
-}
+}    
 
+}  // namespace
+}  // namespace gpu
 extern "C" {
+int num_delegates_created = 0;
+int num_delegates_destroyed = 0;
+int num_delegates_invoked = 0;
+int options_counter = 0;
+int (*destruction_callback)(const char* s) = nullptr;
 typedef void (*ErrorHandler)(const char*);
-// using the default options from TfLiteGpuDelegateOptionsV2Default()
+//change end
 TfLiteDelegate* tflite_plugin_create_delegate(char** options_keys,
                                               char** options_values,
                                               size_t num_options,
                                               ErrorHandler error_handler) {
-  TfLiteGpuDelegateOptionsV2* options;
-  return TfLiteGpuDelegateV2Create(options);
+  num_delegates_created++;
+
+  for (int idx = 0; idx < num_options; idx++) {
+    if (std::strcmp("options_counter", options_keys[idx]) == 0) {
+      int int_value;
+      if (sscanf(options_values[idx], "%d", &int_value) == 1) {
+        options_counter += int_value;
+      }
+    } else if (std::strcmp("fail", options_keys[idx]) == 0) {
+      if (error_handler) error_handler("Fail argument sent.");
+      return nullptr;
+    }
+  }
+
+  TfLiteDelegate* ptr = new TfLiteDelegate;
+  ptr->Prepare = [](TfLiteContext* context, TfLiteDelegate* delegate) {
+    num_delegates_invoked++;
+    return kTfLiteOk;
+  };
+  ptr->flags = kTfLiteDelegateFlagsNone;
+  return ptr;
+}
+
+void set_destroy_callback(int (*callback)(const char* s)) {
+  destruction_callback = callback;
 }
 
 void tflite_plugin_destroy_delegate(TfLiteDelegate* delegate) {
-  delete GetDelegate(delegate);
+  num_delegates_destroyed++;
+  delete delegate;
+  if (destruction_callback) {
+    destruction_callback("test_delegate");
+    // destruction_callback is a global variable,
+    // so it should be set to nullptr here to avoid crashes
+    destruction_callback = nullptr;
+  }
 }
-}  // namespace extern    
 
-}  // namespace gpu
+void initialize_counters() {
+  num_delegates_created = 0;
+  num_delegates_destroyed = 0;
+  num_delegates_invoked = 0;
+  options_counter = 0;
+}
+
+int get_num_delegates_created() { return num_delegates_created; }
+
+int get_num_delegates_destroyed() { return num_delegates_destroyed; }
+
+int get_num_delegates_invoked() { return num_delegates_invoked; }
+
+int get_options_counter() { return options_counter; }
+}
 }  // namespace tflite
 
 TfLiteGpuDelegateOptionsV2 TfLiteGpuDelegateOptionsV2Default() {
