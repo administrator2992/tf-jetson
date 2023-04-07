@@ -22,9 +22,10 @@ limitations under the License.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <iostream
+#include <iostream>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/types/span.h"
 #include "tensorflow/lite/builtin_ops.h"
